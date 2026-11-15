@@ -20962,6 +20962,7 @@ const D = {
   },
   Q = D.q,
   app = document.getElementById("app");
+D.q.push(...window.MANUAL_QUESTIONS);
 const esc = (s) =>
   String(s).replace(
     /[&<>]/g,
@@ -21003,10 +21004,11 @@ const sel = (k, t, a, cur) =>
 
 /* ---------- Questões ---------- */
 const qs = {
-  cfg: { tema: "", subj: "", dif: "", sit: "", ord: "seq", n: 20 },
+  cfg: { tema: "", subj: "", dif: "", sit: "", ord: "seq", n: 20, manual: "" },
   list: null,
   i: 0,
   sel: null,
+  order: null,
   ok: 0,
   done: 0,
 };
@@ -21015,6 +21017,7 @@ const match = () => {
   return Q.filter(
     (x) =>
       (!c.tema || x.tema === c.tema) &&
+      (!c.manual || x.manual === c.manual) &&
       (!c.subj || x.subject === c.subj) &&
       (!c.dif || x.difficulty === c.dif) &&
       (!c.sit || (c.sit === "nova" ? !P[x.id] : P[x.id] && P[x.id].c === 0)),
@@ -21024,7 +21027,7 @@ function qSetup() {
   const c = qs.cfg,
     subj = [
       ...new Set(
-        Q.filter((x) => !c.tema || x.tema === c.tema).map((x) => x.subject),
+        Q.filter((x) => (!c.tema || x.tema === c.tema) && (!c.manual || x.manual === c.manual)).map((x) => x.subject),
       ),
     ].sort(),
     m = match();
@@ -21038,6 +21041,12 @@ function qSetup() {
       ["endemias", "Endemias"],
     ],
     c.tema,
+  )}
+  ${sel(
+    "manual",
+    "Manual",
+    [["", "Todos"], ...[...new Map(window.MANUAL_QUESTIONS.map((x) => [x.manual, x.subject])).entries()],
+    c.manual,
   )}
   ${sel("subj", "Assunto", [["", "Todos"], ...subj.map((s) => [s, s])], c.subj)}
   ${sel(
@@ -21088,7 +21097,13 @@ function qSetup() {
       (s.onchange = () => {
         const k = s.dataset.k;
         qs.cfg[k] = k === "n" ? +s.value : s.value;
-        if (k === "tema") qs.cfg.subj = "";
+        if (k === "tema") {
+          qs.cfg.manual = "";
+          qs.cfg.subj = "";
+        } else if (k === "manual") {
+          qs.cfg.subj = "";
+          if (qs.cfg.manual) qs.cfg.tema = "endemias";
+        }
         qSetup();
       }),
   );
@@ -21098,7 +21113,14 @@ function qSetup() {
       let l = match();
       if (c.ord === "rand") l = shuf(l);
       if (c.n) l = l.slice(0, c.n);
-      Object.assign(qs, { list: l, i: 0, sel: null, ok: 0, done: 0 });
+      Object.assign(qs, {
+        list: l,
+        i: 0,
+        sel: null,
+        order: null,
+        ok: 0,
+        done: 0,
+      });
       qShow();
     };
 }
@@ -21108,13 +21130,15 @@ function qShow() {
   const x = l[qs.i],
     a = qs.sel !== null,
     pct = ((qs.i + (a ? 1 : 0)) / l.length) * 100;
+  if (!qs.order) qs.order = shuf(x.options.map((_, k) => k));
+  const correctLabel = L[qs.order.indexOf(x.correctAnswer)];
   app.innerHTML = `<div class="ui mute">Questão ${qs.i + 1} de ${l.length}</div><div class="strip"><b style="width:${pct}%"></b></div>
-  <div class="panel"><div class="meta"><span class="chip">${esc(x.subject)}</span><span class="chip">${x.difficulty}</span></div>
+  <div class="panel"><div class="meta"><span class="chip">${esc(x.subject)}</span><span class="chip">${x.difficulty}</span>${x.source ? `<span class="chip">${esc(x.source)}</span>` : ""}</div>
   <p class="q">${esc(x.question)}</p>
-  ${x.options.map((o, k) => `<button class="opt${a ? (k === x.correctAnswer ? " ok" : k === qs.sel ? " no" : "") : ""}" data-k="${k}"${a ? " disabled" : ""}><span class="l">${L[k]}</span><span>${esc(o)}</span></button>`).join("")}
+  ${qs.order.map((k, pos) => `<button class="opt${a ? (k === x.correctAnswer ? " ok" : k === qs.sel ? " no" : "") : ""}" data-k="${pos}"${a ? " disabled" : ""}><span class="l">${L[pos]}</span><span>${esc(x.options[k])}</span></button>`).join("")}
   ${
     a
-      ? `<div class="fb ${qs.sel === x.correctAnswer ? "ok" : "no"}"><strong>${qs.sel === x.correctAnswer ? "Acertou." : "Errou. A resposta certa é a " + L[x.correctAnswer] + "."}</strong><br>${esc(x.explanation)}</div>
+      ? `<div class="fb ${qs.sel === x.correctAnswer ? "ok" : "no"}"><strong>${qs.sel === x.correctAnswer ? "Acertou." : "Errou. A resposta certa é a " + correctLabel + "."}</strong><br>${esc(x.explanation)}</div>
   <div class="row"><button class="btn" id="nx">${qs.i + 1 < l.length ? "Próxima questão" : "Ver resultado"}</button></div>`
       : ""
   }</div>
@@ -21135,6 +21159,7 @@ function qShow() {
 function pick(k) {
   if (qs.sel !== null) return;
   const x = qs.list[qs.i];
+  k = qs.order[k];
   qs.sel = k;
   qs.done++;
   const ok = k === x.correctAnswer;
@@ -21146,6 +21171,7 @@ function pick(k) {
 function next() {
   qs.i++;
   qs.sel = null;
+  qs.order = null;
   qShow();
   window.scrollTo(0, 0);
 }
@@ -21313,6 +21339,7 @@ function pShow() {
   document.getElementById("er").onclick = () => {
     Object.assign(qs.cfg, {
       tema: "",
+      manual: "",
       subj: "",
       dif: "",
       sit: "erro",
