@@ -21027,7 +21027,11 @@ function qSetup() {
   const c = qs.cfg,
     subj = [
       ...new Set(
-        Q.filter((x) => (!c.tema || x.tema === c.tema) && (!c.manual || x.manual === c.manual)).map((x) => x.subject),
+        Q.filter(
+          (x) =>
+            (!c.tema || x.tema === c.tema) &&
+            (!c.manual || x.manual === c.manual),
+        ).map((x) => x.subject),
       ),
     ].sort(),
     m = match();
@@ -21045,7 +21049,14 @@ function qSetup() {
   ${sel(
     "manual",
     "Manual",
-    [["", "Todos"], ...[...new Map(window.MANUAL_QUESTIONS.map((x) => [x.manual, x.subject])).entries()],
+    [
+      ["", "Todos"],
+      ...[
+        ...new Map(
+          window.MANUAL_QUESTIONS.map((x) => [x.manual, x.subject]),
+        ).entries(),
+      ],
+    ],
     c.manual,
   )}
   ${sel("subj", "Assunto", [["", "Todos"], ...subj.map((s) => [s, s])], c.subj)}
